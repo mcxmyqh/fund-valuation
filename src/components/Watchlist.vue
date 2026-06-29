@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { fetchFundValuation } from '../composables/useFundApi.js'
 import { useWatchlist } from '../composables/useWatchlist.js'
 import FundHoldingsModal from './FundHoldingsModal.vue'
+import FundTrendChart from './FundTrendChart.vue'
 
 const { watchlist, removeFund } = useWatchlist()
 
@@ -10,6 +11,7 @@ const VALUATION_CACHE_KEY = 'fund-valuation-cache'
 
 const valuations = ref(loadCache())
 const modalFund = ref(null)
+const trendFund = ref(null)
 const loading = ref(false)
 const autoRefresh = ref(true)
 let timer = null
@@ -28,6 +30,10 @@ function saveCache() {
 }
 
 watch(valuations, saveCache, { deep: true })
+
+watch(watchlist, (val) => {
+  if (val.length) refreshAll()
+}, { immediate: true })
 
 const SORT_KEY = 'fund-sort-order'
 const sortBy = ref(localStorage.getItem(SORT_KEY) || '')
@@ -76,12 +82,11 @@ function getChangeClass(value) {
 }
 
 onMounted(() => {
-  if (watchlist.value.length > 0) refreshAll()
   timer = setInterval(() => {
     if (autoRefresh.value && watchlist.value.length > 0) {
       refreshAll()
     }
-  }, 60000)
+  }, 30000)
 })
 
 onUnmounted(() => {
@@ -94,7 +99,7 @@ onUnmounted(() => {
     <div class="toolbar">
       <label class="auto-refresh">
         <input type="checkbox" v-model="autoRefresh" />
-        自动刷新（1分钟）
+        自动刷新（30秒）
       </label>
       <div class="toolbar-right">
         <button
@@ -118,6 +123,7 @@ onUnmounted(() => {
         <div class="fund-header">
           <span class="fund-code clickable" @click="modalFund = f">{{ f.code }}</span>
           <span class="fund-name clickable" @click="modalFund = f">{{ f.name }}</span>
+          <button class="trend-btn" @click="trendFund = f">走势</button>
           <button class="remove-btn" @click="removeFund(f.code)">删除</button>
         </div>
         <div v-if="valuations[f.code]" class="valuation">
@@ -151,6 +157,12 @@ onUnmounted(() => {
       :fund-code="modalFund.code"
       :fund-name="modalFund.name"
       @close="modalFund = null"
+    />
+    <FundTrendChart
+      v-if="trendFund"
+      :fund-code="trendFund.code"
+      :fund-name="trendFund.name"
+      @close="trendFund = null"
     />
   </div>
 </template>
@@ -253,7 +265,7 @@ onUnmounted(() => {
 .fund-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 14px;
   padding-bottom: 12px;
   border-bottom: 1px solid #f0f0f0;
@@ -281,6 +293,24 @@ onUnmounted(() => {
 
 .clickable:hover {
   opacity: 0.7;
+}
+
+.trend-btn {
+  padding: 4px 12px;
+  border: 1px solid #409eff;
+  background: #fff;
+  color: #409eff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.trend-btn:hover {
+  background: #409eff;
+  color: #fff;
 }
 
 .remove-btn {

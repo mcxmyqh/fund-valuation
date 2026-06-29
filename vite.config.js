@@ -24,6 +24,11 @@ module.exports = defineConfig({
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
       },
+      '/api/fund-nav-history': {
+        target: 'https://fundf10.eastmoney.com',
+        changeOrigin: true,
+        rewrite: p => p.replace('/api/fund-nav-history', '/F10DataApi.aspx'),
+      },
     },
   },
 })
