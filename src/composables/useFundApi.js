@@ -54,11 +54,11 @@ function parseNavTable(html) {
   return rows
 }
 
-export async function fetchFundNavHistory(code) {
+export async function fetchFundNavHistory(code, months = 6) {
   const today = new Date()
-  const sixMonthsAgo = new Date(today)
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-  const sdate = sixMonthsAgo.toISOString().slice(0, 10)
+  const start = new Date(today)
+  start.setMonth(start.getMonth() - months)
+  const sdate = start.toISOString().slice(0, 10)
   const edate = today.toISOString().slice(0, 10)
   const baseUrl = `/api/fund-nav-history?type=lsjz&code=${code}&sdate=${sdate}&edate=${edate}`
 

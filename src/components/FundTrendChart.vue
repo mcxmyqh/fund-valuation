@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { fetchFundNavHistory } from '../composables/useFundApi.js'
 
 const props = defineProps({
@@ -9,8 +9,16 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
+const periods = [
+  { label: '10天', months: 10 / 30 },
+  { label: '1个月', months: 1 },
+  { label: '半年', months: 6 },
+  { label: '1年', months: 12 },
+]
+const activePeriod = ref(periods[0])
+
 const data = ref([])
-const loading = ref(true)
+const loading = ref(false)
 const error = ref('')
 
 const W = 600
@@ -53,30 +61,43 @@ function yTicks() {
 
 function xLabels() {
   if (!data.value.length) return []
-  const step = Math.max(1, Math.floor(data.value.length / 6))
+  const maxLabels = 6
+  const step = Math.max(1, Math.floor(data.value.length / maxLabels))
   const indices = []
   for (let i = 0; i < data.value.length; i += step) indices.push(i)
   if (indices[indices.length - 1] !== data.value.length - 1) indices.push(data.value.length - 1)
   return indices.map(i => ({ i, label: data.value[i].date.slice(5) }))
 }
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = ''
   try {
-    data.value = await fetchFundNavHistory(props.fundCode)
+    data.value = await fetchFundNavHistory(props.fundCode, activePeriod.value.months)
   } catch {
     error.value = '加载走势数据失败'
   } finally {
     loading.value = false
   }
-})
+}
+
+load()
 </script>
 
 <template>
   <div class="modal-overlay" @click.self="emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h3>{{ fundName }}（{{ fundCode }}）— 近半年净值走势</h3>
+        <h3>{{ fundName }}（{{ fundCode }}）</h3>
         <button class="close-btn" @click="emit('close')">&times;</button>
+      </div>
+      <div class="period-bar">
+        <button
+          v-for="p in periods"
+          :key="p.label"
+          :class="{ active: activePeriod === p }"
+          @click="activePeriod = p; load()"
+        >{{ p.label }}</button>
       </div>
       <div class="modal-body">
         <div v-if="loading" class="status">加载中...</div>
@@ -147,8 +168,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
+  padding: 16px 20px 0;
 }
 
 .modal-header h3 {
@@ -167,10 +187,39 @@ onMounted(async () => {
   color: #999;
   padding: 0 4px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
   color: #333;
+}
+
+.period-bar {
+  display: flex;
+  gap: 6px;
+  padding: 12px 20px 0;
+}
+
+.period-bar button {
+  padding: 6px 16px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #666;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.period-bar button.active {
+  border-color: #409eff;
+  color: #409eff;
+  background: #f0f7ff;
+}
+
+.period-bar button:hover:not(.active) {
+  border-color: #409eff;
+  color: #409eff;
 }
 
 .modal-body {
@@ -212,7 +261,7 @@ onMounted(async () => {
   }
 
   .modal-header {
-    padding: 14px 16px;
+    padding: 14px 16px 0;
   }
 
   .modal-header h3 {
@@ -222,6 +271,16 @@ onMounted(async () => {
   .close-btn {
     font-size: 28px;
     padding: 4px 8px;
+  }
+
+  .period-bar {
+    padding: 10px 16px 0;
+    gap: 4px;
+  }
+
+  .period-bar button {
+    padding: 5px 12px;
+    font-size: 12px;
   }
 
   .modal-body {
