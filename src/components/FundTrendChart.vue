@@ -10,7 +10,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const periods = [
-  { label: '10天', months: 10 / 30 },
+  { label: '10天', days: 10 },
   { label: '1个月', months: 1 },
   { label: '半年', months: 6 },
   { label: '1年', months: 12 },
@@ -31,6 +31,10 @@ const chartH = computed(() => H - PAD.top - PAD.bottom)
 const minVal = computed(() => data.value.length ? Math.min(...data.value.map(d => d.nav)) : 0)
 const maxVal = computed(() => data.value.length ? Math.max(...data.value.map(d => d.nav)) : 0)
 const range = computed(() => maxVal.value - minVal.value || 1)
+
+const hoveredPoint = ref(null)
+
+const chartColor = '#409eff'
 
 function x(i) {
   return PAD.left + (i / (data.value.length - 1 || 1)) * chartW.value
@@ -61,19 +65,41 @@ function yTicks() {
 
 function xLabels() {
   if (!data.value.length) return []
-  const maxLabels = 6
-  const step = Math.max(1, Math.floor(data.value.length / maxLabels))
+
+  const maxLabels = 4
+
+  const step = Math.max(1, Math.ceil(data.value.length / maxLabels))
+
   const indices = []
   for (let i = 0; i < data.value.length; i += step) indices.push(i)
   if (indices[indices.length - 1] !== data.value.length - 1) indices.push(data.value.length - 1)
-  return indices.map(i => ({ i, label: data.value[i].date.slice(5) }))
+
+  const hasMultipleYears = data.value.length > 1 &&
+    data.value[0].date.slice(0, 4) !== data.value[data.value.length - 1].date.slice(0, 4)
+
+  return indices.map(i => {
+    const date = data.value[i].date
+    const label = hasMultipleYears ? date.slice(2) : date.slice(5)
+    return { i, label }
+  })
+}
+
+function handleMouseMove(e, pointIndex) {
+  if (hoveredPoint.value !== pointIndex) {
+    hoveredPoint.value = pointIndex
+  }
+}
+
+function handleMouseLeave() {
+  hoveredPoint.value = null
 }
 
 async function load() {
   loading.value = true
   error.value = ''
+  hoveredPoint.value = null
   try {
-    data.value = await fetchFundNavHistory(props.fundCode, activePeriod.value.months)
+    data.value = await fetchFundNavHistory(props.fundCode, activePeriod.value.months, activePeriod.value.days)
   } catch {
     error.value = '加载走势数据失败'
   } finally {
@@ -127,12 +153,31 @@ load()
             >{{ l.label }}</text>
             <path :d="areaPath()" fill="url(#areaGrad)" />
             <path :d="path()" fill="none" stroke="#409eff" stroke-width="2" stroke-linejoin="round" />
-            <circle
-              v-for="(d, i) in data" :key="d.date"
-              :cx="x(i)" :cy="y(d.nav)" r="3" fill="#409eff"
-            >
-              <title>{{ d.date }} {{ d.nav.toFixed(4) }}</title>
-            </circle>
+            <g v-for="(d, i) in data" :key="d.date">
+              <circle
+                :cx="x(i)" :cy="y(d.nav)"
+                :r="hoveredPoint === i ? 6 : 3"
+                :fill="hoveredPoint === i ? chartColor : 'transparent'"
+                :stroke="chartColor"
+                :stroke-width="hoveredPoint === i ? 2 : 1.5"
+                class="data-point"
+                @mouseenter="handleMouseMove($event, i)"
+                @mouseleave="handleMouseLeave"
+              />
+            </g>
+            <g v-if="hoveredPoint !== null" class="tooltip">
+              <rect
+                :x="x(hoveredPoint) - 50" :y="y(data[hoveredPoint].nav) - 55"
+                width="100" height="40"
+                rx="4" fill="rgba(0,0,0,0.8)"
+              />
+              <text :x="x(hoveredPoint)" :y="y(data[hoveredPoint].nav) - 36" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">
+                {{ data[hoveredPoint].date }}
+              </text>
+              <text :x="x(hoveredPoint)" :y="y(data[hoveredPoint].nav) - 22" text-anchor="middle" fill="#fff" font-size="11">
+                {{ data[hoveredPoint].nav.toFixed(4) }}
+              </text>
+            </g>
           </svg>
         </div>
         <div v-else class="status">暂无数据</div>
@@ -236,6 +281,11 @@ load()
   width: 100%;
   height: auto;
   display: block;
+}
+
+.data-point {
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .status {

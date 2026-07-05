@@ -6,9 +6,14 @@ module.exports = defineConfig({
   server: {
     proxy: {
       '/api/fund-list': {
-        target: 'http://fund.eastmoney.com',
+        target: 'https://fund.eastmoney.com',
         changeOrigin: true,
+        secure: true,
         rewrite: p => p.replace('/api/fund-list', '/js/fundcode_search.js'),
+        headers: {
+          'Referer': 'https://fund.eastmoney.com',
+          'Origin': 'https://fund.eastmoney.com',
+        },
       },
       '/api/fundgz': {
         target: 'http://fundgz.1234567.com.cn',
